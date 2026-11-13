@@ -121,9 +121,12 @@ export default function AudioSettings({
   const [open, setOpen] = useState(false);
   const panelRef = useRef(null);
 
-  // --- BGM (내 음악 파일, 화면에 플레이어 없이 소리만) ---
+    // --- BGM (내 음악 파일, 화면에 플레이어 없이 소리만) ---
+  //  아이폰은 <audio>의 볼륨을 바꿀 수 없어서, 소리를 "볼륨 조절기(GainNode)"에 통과시켜 조절해요
   const bgmSrc = partyData?.bgmFile || "";
   const audioRef = useRef(null);
+  const ctxRef = useRef(null);  // 소리 처리기 (Web Audio)
+  const gainRef = useRef(null); // 볼륨 조절기
   const [bgmError, setBgmError] = useState(false);
   const autoStartAt = useRef(0); // "첫 터치로 재생"한 시각 (같은 터치로 바로 멈추지 않게)
 
@@ -132,8 +135,25 @@ export default function AudioSettings({
     const audio = new Audio(bgmSrc);
     audio.loop = true; // 끝나면 처음부터 다시
     audio.preload = "auto";
-    audio.volume = bgmVolume / 100;
     audioRef.current = audio;
+
+    // 볼륨 조절기 연결: 음악 → 볼륨 조절기 → 스피커
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    let ctx = null;
+    if (AudioCtx) {
+      try {
+        if (navigator.audioSession) navigator.audioSession.type = "playback"; // 아이폰 무음 모드에서도 소리 나게
+        ctx = new AudioCtx();
+        const gain = ctx.createGain();
+        gain.gain.value = bgmVolume / 100;
+        ctx.createMediaElementSource(audio).connect(gain).connect(ctx.destination);
+        ctxRef.current = ctx;
+        gainRef.current = gain;
+      } catch {
+        ctx = null; // 안 되는 브라우저는 그냥 <audio> 볼륨으로
+      }
+    }
+    if (!ctx) audio.volume = bgmVolume / 100;
 
     const onPlay = () => setBgmPlaying(true);
     const onPause = () => setBgmPlaying(false);
@@ -150,17 +170,26 @@ export default function AudioSettings({
     const startOnTouch = () => {
       removeWaiters();
       autoStartAt.current = Date.now();
+      ctx?.resume().catch(() => {});
       audio.play().catch(() => {});
     };
     const removeWaiters = () => {
       window.removeEventListener("pointerdown", startOnTouch);
       window.removeEventListener("keydown", startOnTouch);
     };
+    const addWaiters = () => {
+      window.addEventListener("pointerdown", startOnTouch);
+      window.addEventListener("keydown", startOnTouch);
+    };
     if (partyData?.bgmAutoplay !== false) {
-      audio.play().catch(() => {
-        window.addEventListener("pointerdown", startOnTouch);
-        window.addEventListener("keydown", startOnTouch);
-      });
+      ctx?.resume().catch(() => {});
+      audio
+        .play()
+        .then(() => {
+          // 재생은 됐는데 소리 처리기가 아직 잠겨 있으면 → 첫 터치 때 깨우기
+          if (ctx && ctx.state !== "running") addWaiters();
+        })
+        .catch(addWaiters);
     }
 
     return () => {
@@ -170,14 +199,19 @@ export default function AudioSettings({
       audio.removeEventListener("pause", onPause);
       audio.removeEventListener("error", onError);
       audio.src = "";
+      ctx?.close().catch(() => {});
       audioRef.current = null;
+      ctxRef.current = null;
+      gainRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bgmSrc, setBgmPlaying]);
 
-  // 볼륨 (아이폰은 브라우저에서 볼륨을 바꿀 수 없어서, 폰 옆 음량 버튼으로 조절돼요)
+  // 볼륨 바꾸기 (볼륨 조절기가 있으면 그걸로 → 아이폰에서도 작동)
   useEffect(() => {
-    if (audioRef.current) audioRef.current.volume = bgmVolume / 100;
+    const v = bgmVolume / 100;
+    if (gainRef.current && ctxRef.current) gainRef.current.gain.setTargetAtTime(v, ctxRef.current.currentTime, 0.05);
+    else if (audioRef.current) audioRef.current.volume = v;
   }, [bgmVolume]);
 
   const toggleBgm = () => {
@@ -185,6 +219,7 @@ export default function AudioSettings({
     if (!audio) return;
     if (Date.now() - autoStartAt.current < 600) return; // 방금 첫 터치로 켜졌으면 그대로 두기
     setBgmError(false);
+    ctxRef.current?.resume().catch(() => {});
     if (audio.paused) audio.play().catch(() => setBgmError(true));
     else audio.pause();
   };
