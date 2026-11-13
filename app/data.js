@@ -1,9 +1,7 @@
 // 파티에서 쓰는 데이터 모음
 export const partyData = {
-  // 파티 BGM 링크
-  //  - 추천: 저작권 걱정 없는 무료 음악 파일을 public 폴더에 넣고 "/파일이름.mp3"
-  //  - 유튜브 링크도 가능해요 (재생 중에는 작은 영상 창이 함께 보여요)
-  bgmYoutubeLink: 'https://youtu.be/wX_e1Hdc_bI',
+    // 파티 BGM (내 음악 파일) — public 폴더에 넣고 "/파일이름.mp3" 로 적어요
+  bgmFile: "/bgm.mp3",
   // (선택) 트리 그림 — 배경에 트리가 없으면 "/tree.png" 처럼 넣어 주세요. 비워 두면 배경의 트리를 그대로 써요
   treeImage: '',
   // 식탁 위 음식 (왼쪽부터 시계 방향) — id는 mapConfig.js의 FOOD_SPOTS와 같아야 해요
