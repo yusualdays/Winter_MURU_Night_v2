@@ -859,11 +859,7 @@ export default function LivingRoom() {
       />
 
       {/* 오른쪽 아래: 채팅 기록 + 💬 말하기 버튼 (미니 플레이어가 뜨면 그 위로 올라가요) */}
-      <ChatBox
-        nickname={nickname}
-        lifted={bgmPlaying && !isNarrow}
-        onOpenInput={() => setChatOpen(true)}
-      />
+            <ChatBox nickname={nickname} onOpenInput={() => setChatOpen(true)} />
 
       {/* 휴대폰·태블릿: 왼쪽 아래 방향 패드 + 행동 버튼 (PC에서는 안 보여요) */}
       {isTouch && (
