@@ -7,6 +7,9 @@ import { DEFAULT_LOOK, normalizeLook } from './lib/pixelCharacter';
 import { getLook, saveLook } from './lib/session';
 import { playDoorbell } from './lib/doorbell';
 import LoadingScreen from './components/LoadingScreen';
+import UserActions from "../components/UserActions";
+import GreetToast from "../components/GreetToast";
+import ProfileModal from "../components/ProfileModal";
 
 export default function EntranceGate() {
   const router = useRouter();
