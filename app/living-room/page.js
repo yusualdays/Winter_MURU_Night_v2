@@ -22,6 +22,7 @@ import UserActions from "../components/UserActions";
 import GreetToast from "../components/GreetToast";
 import ProfileModal from "../components/ProfileModal";
 import ToastParty from '../components/ToastParty';
+import SnowGame from "../components/SnowGame";
 import { EMOTE_KEYS } from '../components/EmoteBubble';
 import {
   ref,
@@ -171,6 +172,7 @@ export default function LivingRoom() {
     seatId: null,
   }); // 보낼 최신 내 상태
   const cheeringRef = useRef(false); // 건배 포즈 중에는 제자리에 서 있기
+  const speedRef = useRef(1);        // 이동 속도 배율 (눈덩이에 맞으면 잠깐 느려져요)
 
   // ===== 상호작용 =====
   const [openId, setOpenId] = useState(null); // 지금 열린 상세 창 (예: "pizza", "bookshelf", "posters", "tree")
@@ -546,8 +548,9 @@ export default function LivingRoom() {
 
         setPos((p) => {
           const { w, h, rects } = mapRef.current;
-          const nextX = clamp(p.x + dx * SPEED * dt, 0, w - AVATAR_WIDTH);
-          const nextY = clamp(p.y + dy * SPEED * dt, 0, h - AVATAR_HEIGHT);
+        const step = SPEED * speedRef.current * dt; // 눈덩이에 맞으면 speedRef가 작아져요
+        const nextX = clamp(p.x + dx * step, 0, w - AVATAR_WIDTH);
+        const nextY = clamp(p.y + dy * step, 0, h - AVATAR_HEIGHT);
 
           // 가로, 세로를 따로 검사 → 가구 모서리를 따라 미끄러지듯 이동 가능
           const x = isBlocked(nextX, p.y, rects) ? p.x : nextX;
@@ -902,7 +905,23 @@ export default function LivingRoom() {
             isMe
           />
 
-                    {/* 친구 가까이 가면 친구 머리 위에 [🤝 인사하기] [🔍 프로필] */}
+                            {/* ❄️ 눈덩이 피하기 미니게임 */}
+        <SnowGame
+          mapW={mapSize.w}
+          mapH={mapSize.h}
+          myId={myId}
+          nickname={nickname}
+          myPos={pos}
+          others={others}
+          speedRef={speedRef}
+          onStart={() => {
+            closeDetail();
+            setChatOpen(false);
+            if (seatIdRef.current) standUpRef.current();
+          }}
+        />
+          
+          {/* 친구 가까이 가면 친구 머리 위에 [🤝 인사하기] [🔍 프로필] */}
           <UserActions
             user={nearFriend}
             onGreet={() => nearFriend && greet(nearFriend.id)}
