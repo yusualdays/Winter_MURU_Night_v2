@@ -18,6 +18,9 @@ import AudioSettings from '../components/AudioSettings';
 import RoomAmbience from '../components/RoomAmbience';
 import LoadingScreen from '../components/LoadingScreen';
 import MobileControls from '../components/MobileControls';
+import UserActions from "../components/UserActions";
+import GreetToast from "../components/GreetToast";
+import ProfileModal from "../components/ProfileModal";
 import ToastParty from '../components/ToastParty';
 import { EMOTE_KEYS } from '../components/EmoteBubble';
 import {
@@ -57,6 +60,9 @@ const SYNC_INTERVAL = 100; // 내 위치를 Firebase에 보내는 간격 (0.1초
 const EMOTE_MS = 3000; // 표정 말풍선이 떠 있는 시간 (3초)
 const CHAT_MS = 5000; // 채팅 말풍선이 떠 있는 시간 (5초)
 const CHAT_COOLDOWN = 800; // 도배 방지 (0.8초에 한 번)
+const FRIEND_RADIUS = 60;     // 친구와 이만큼(맵 기준 px) 가까우면 [🤝 인사하기] [🔍 프로필]
+const GREET_EMOTE = "smile";  // 인사할 때 두 캐릭터가 짓는 표정 ("smile" 방긋 / "heart" 하트 / "hurray" 만세)
+const GREET_COOLDOWN = 3000;  // 인사 도배 방지 (3초에 한 번)
 
 // 충돌은 아바타의 "발밑" 부분으로만 판정 (위에서 내려다보는 시점이라 자연스러움)
 // (캐릭터 크기가 바뀌어도 항상 발밑 가운데에 오도록 자동 계산)
@@ -184,6 +190,12 @@ export default function LivingRoom() {
   const seenChat = useRef({}); // 유저별로 마지막으로 본 chatTimestamp
   const lastChatSent = useRef(0);
 
+    // ===== 친구와 인사·프로필 =====
+  const [toast, setToast] = useState(null);           // 화면 위 알림 { id, text }
+  const [profileUser, setProfileUser] = useState(null); // 프로필을 보는 친구
+  const lastGreetAt = useRef(0);
+  const enteredAt = useRef(Date.now());               // 들어온 시각 (그 전에 온 인사는 무시)
+  
   // ===== 휴대폰 조작 =====
   const [isTouch, setIsTouch] = useState(false); // 손가락으로 쓰는 기기인지 (휴대폰·태블릿)
   const [isNarrow, setIsNarrow] = useState(false); // 화면이 좁은지 (휴대폰 세로 화면 등)
@@ -369,6 +381,46 @@ export default function LivingRoom() {
     }).catch(() => {});
   };
 
+  // 1-8) 화면 위 알림 띄우기 (3초)
+  const showToast = (text) => {
+    const id = Date.now();
+    setToast({ id, text });
+    setTimeout(() => setToast((t) => (t?.id === id ? null : t)), 3000);
+  };
+
+  // 1-9) 누가 나에게 인사하면 (events/greetings/내ID) → 알림 + 방긋 표정
+  useEffect(() => {
+    if (!myId || !db) return;
+    const myGreetRef = ref(db, `events/greetings/${myId}`);
+    onDisconnect(myGreetRef).remove();
+    let lastSeen = 0;
+    const unsubscribe = onValue(myGreetRef, (snap) => {
+      const g = snap.val();
+      if (!g || typeof g.at !== "number" || g.at === lastSeen || g.at < enteredAt.current) return;
+      lastSeen = g.at;
+      showToast(`${g.fromName || "손님"}님이 손을 흔들며 인사합니다!`);
+      setEmote({ type: GREET_EMOTE, id: Date.now() });
+    });
+    return () => {
+      unsubscribe();
+      remove(myGreetRef).catch(() => {});
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myId]);
+
+  // 내가 친구에게 인사하기
+  const greet = (friendId) => {
+    const now = Date.now();
+    if (now - lastGreetAt.current < GREET_COOLDOWN) return;
+    lastGreetAt.current = now;
+    const friend = others[friendId];
+    setEmote({ type: GREET_EMOTE, id: now }); // 나도 방긋
+    showToast(`${friend?.nickname || "친구"}님에게 인사했어요!`);
+    if (db && myId) {
+      set(ref(db, `events/greetings/${friendId}`), { fromId: myId, fromName: nickname, at: now }).catch(() => {});
+    }
+  };
+  
   // 2) 배경 이미지를 불러와서 맵 크기 정하기 (없으면 임시 맵 사용)
   useEffect(() => {
     const setupMap = (w, h, withImage) => {
@@ -640,6 +692,19 @@ export default function LivingRoom() {
     padDirsRef.current = dirs;
   };
 
+   // 가장 가까운 친구 (발끼리 FRIEND_RADIUS 안) → 친구 머리 위에 [🤝] [🔍]
+  let nearFriend = null;
+  if (mapSize && !openId) {
+    let best = FRIEND_RADIUS;
+    for (const [id, u] of Object.entries(others)) {
+      const d = Math.hypot(u.x - pos.x, u.y - pos.y); // 같은 크기 아바타라 왼쪽 위끼리 비교 = 발끼리 비교
+      if (d <= best) {
+        best = d;
+        nearFriend = { id, x: u.x, y: u.y, nickname: u.nickname || "손님" };
+      }
+    }
+  }
+  
   // 버튼을 띄울 위치 + 아이콘·이름
   //  - 앉아 있으면: 내 의자 위에 [🙋 일어나기]
   //  - 의자 근처: [🪑 앉기] 또는 [🚫 OO님 자리예요]
@@ -837,6 +902,16 @@ export default function LivingRoom() {
             isMe
           />
 
+                    {/* 친구 가까이 가면 친구 머리 위에 [🤝 인사하기] [🔍 프로필] */}
+          <UserActions
+            user={nearFriend}
+            onGreet={() => nearFriend && greet(nearFriend.id)}
+            onProfile={() => {
+              if (!nearFriend) return;
+              setProfileUser(others[nearFriend.id]);
+              openDetail("profile");
+            }}
+          />
           {/* 가까이 가면 물건 위에 톡! 뜨는 버튼 (클릭 또는 E키 → 상세 창) */}
           {/*   예: [🔍 올해의 영화] [✍️ 방명록] [🎄 소원 빌기 🙏] */}
           <InteractButton
@@ -848,6 +923,9 @@ export default function LivingRoom() {
         </div>
       )}
 
+            {/* 친구 프로필 창 + 인사 알림 */}
+      <ProfileModal user={profileUser} open={openId === "profile"} onClose={closeDetail} />
+      <GreetToast toast={toast} />
       {/* 상세 창: 올해의 영화 / 올해의 책 (음식 설명 창은 DiningTable 안에 있어요) */}
       <MovieWall open={openId === 'posters'} onClose={closeDetail} />
       <Bookshelf open={openId === 'bookshelf'} onClose={closeDetail} />
