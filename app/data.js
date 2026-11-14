@@ -1,5 +1,6 @@
 // 파티에서 쓰는 데이터 모음
 export const partyData = {
+      hostNickname: "주인장",
     // 파티 BGM (내 음악 파일) — public 폴더에 넣고 "/파일이름.mp3" 로 적어요
   bgmFile: "/bgm.mp3",
   // (선택) 트리 그림 — 배경에 트리가 없으면 "/tree.png" 처럼 넣어 주세요. 비워 두면 배경의 트리를 그대로 써요
