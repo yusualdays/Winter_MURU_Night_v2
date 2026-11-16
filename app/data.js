@@ -120,7 +120,7 @@ export const partyData = {
       '우리 구글 MEET에서 만나요.\n편한 옷, 따뜻한 음료와 간식 챙겨 오세요 ☕', // 편지 내용 (\n = 줄바꿈)
     host: '주인장', // "— 파티 주인 드림"
     links: [
-      { label: 'Google Meet', url: 'https://meet.google.com/csi-kfed-nxk' }, // 버튼 글자, 통화 주소
+      { label: 'Google Meet 가기', url: 'https://meet.google.com/csi-kfed-nxk' }, // 버튼 글자, 통화 주소
     ],
     image: '', // (선택) 봉투 그림 — 비워 두면 코드로 그린 도트 봉투가 보여요
   },
