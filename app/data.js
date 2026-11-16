@@ -115,12 +115,12 @@ export const partyData = {
   //  - note: 비밀번호 같은 안내 (없으면 지워도 돼요)
   call: {
     title: '🎄 겨울이 무르익는 밤 라이브 초대장', // 창 맨 위 제목
-    time: '12월 15일 (일) 저녁 7시', // 빨간 날짜 띠
+    time: '12월 19일 (토) 저녁 7시', // 빨간 날짜 띠
     message:
       '우리 구글 MEET에서 만나요.\n편한 옷, 따뜻한 음료와 간식 챙겨 오세요 ☕', // 편지 내용 (\n = 줄바꿈)
     host: '주인장', // "— 파티 주인 드림"
     links: [
-      { label: 'Google Meet로 참여하기', url: 'https://meet.google.com/csi-kfed-nxk' }, // 버튼 글자, 통화 주소
+      { label: 'Google Meet', url: 'https://meet.google.com/csi-kfed-nxk' }, // 버튼 글자, 통화 주소
     ],
     image: '', // (선택) 봉투 그림 — 비워 두면 코드로 그린 도트 봉투가 보여요
   },
